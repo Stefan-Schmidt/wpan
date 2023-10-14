@@ -1,0 +1,69 @@
+name: Linux wpan kernel patch testing
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - ci-testing
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  build-kernel:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository to the runner
+        uses: actions/checkout@v4
+      - name: Install one missing kernel build dependency
+        run: |
+          sudo apt install libelf-dev sparse
+      - name: Build wpan default config
+        run: |
+          cp .github/config .config
+          make -j 4
+      - name: Warning enabled and CHECK build in ieee802154 and 6lowpan directories
+        run: |
+          touch drivers/net/ieee802154/* net/ieee802154/* net/ieee802154/6lowpan/* net/mac802154/* net/6lowpan/*
+          make W=1 C=1 drivers/net/ieee802154/
+          make W=1 C=1 net/ieee802154/
+          make W=1 C=1 net/ieee802154/6lowpan
+          make W=1 C=1 net/mac802154/
+          make W=1 C=1 net/6lowpan/
+      - name: Clean builds in ieee802154 and 6lowpan directories
+        run: |
+          touch drivers/net/ieee802154/* net/ieee802154/* net/ieee802154/6lowpan/* net/mac802154/* net/6lowpan/*
+          make drivers/net/ieee802154/
+          make net/ieee802154/
+          make net/ieee802154/6lowpan
+          make net/mac802154/
+          make net/6lowpan/
+
+# Have a minimal config file + ieee802154 options enabled
+# Two different runs with experimental on and off
+# Try clang build as well?
+# Have sparse installed
+
+# Run selftest for net, especially 6lowpan and ieee80154. Running in vrtme as root
+#make -C tools/testing/selftests
+#sudo virtme-run --pwd --kimg arch/x86_64/boot/bzImage --script-sh "make -C tools/testing/selftests TARGETS=net run_tests" --qemu-opts -usb -usbdevice host:20b7:1540
+
+# Run only net selftests?
+
+# make kselftest
+# make checkstack
+# make coccicheck
+# make docsclean
+# make htmldocs
+
+# Compile run with sparse (maybe also try C=2?)
+#make W=1 C=1 CF=-D__CHECK_ENDIAN__
+
+# Run smatch from kernel
+# make CHECK="/home/stefan/Projects/ieee802154/kernel/smatch/smatch -p=kernel" C=1 bzImage modules | tee warns.txt
+
+#make W=n   [targets] Enable extra gcc checks, n=1,2,3 where
+#                1: warnings which may be relevant and do not occur too often
+#                2: warnings which occur quite often but may still be relevant
+#                3: more obscure warnings, can most likely be ignored
+#                Multiple levels can be combined with W=12 or W=123
